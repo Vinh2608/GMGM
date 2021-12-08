@@ -8,6 +8,7 @@ from rdkit import Chem
 from scipy.spatial import distance_matrix
 from rdkit.Chem.rdmolops import GetAdjacencyMatrix
 import pickle
+import os
 random.seed(0)
 
 def get_atom_feature(m, is_ligand=True):
@@ -34,7 +35,7 @@ class MolDataset(Dataset):
     def __getitem__(self, idx):
         #idx = 0
         key = self.keys[idx]
-        with open(self.data_dir+'/'+key, 'rb') as f:
+        with open(os.path.join(self.data_dir, key), 'rb') as f:
             m1, m2 = pickle.load(f)
 
         #prepare ligand
