@@ -6,7 +6,8 @@ from rdkit.Chem.rdchem import *
 from rdkit.Chem.rdmolops import *
 from rdkit.Chem.rdmolfiles import *
 from sklearn.model_selection import train_test_split
-
+import os
+from multiprocessing import Process
 # %%
 active_keys_file = "active_keys.pkl"
 inactive_keys_file = "inactive_keys.pkl"
@@ -25,27 +26,50 @@ general_cpx = os.listdir(general_dir)
 refined_cpx = os.listdir(refined_dir)
 
 all_keys = active_keys + inactive_keys
-for key in tqdm(all_keys):
-    cpx_name = key.split("_")[0]
-    load_dir = None
-    if cpx_name in general_cpx:
-        load_dir = general_dir
-    elif cpx_name in refined_cpx:
-        load_dir = refined_dir
 
-    # Load ligand
-    ligands_sdf = SDMolSupplier("%s/%s/%s_ligand.sdf" % (load_dir, cpx_name, cpx_name))
-    ligand = ligands_sdf[0]
-    # print("ligand %s" % cpx_name, ligand != None)
-    
-    # Load receptor
-    receptor = MolFromPDBFile("%s/%s/%s_protein.pdb" % (load_dir, cpx_name, cpx_name))
-    # print("receptor %s" % cpx_name, receptor != None)
+def process_keys(keys):
+    for key in tqdm(keys):
+        cpx_name = key.split("_")[0]
+        load_dir = None
+        if cpx_name in general_cpx:
+            load_dir = general_dir
+        elif cpx_name in refined_cpx:
+            load_dir = refined_dir
 
-    pickle.dump(
-        [ligand, receptor],
-        open(
-            "../data/%s" % key,
-            "wb"
+        # Load ligand
+        ligands_sdf = SDMolSupplier("%s/%s/%s_ligand.sdf" % (load_dir, cpx_name, cpx_name), sanitize=False)
+        ligand = ligands_sdf[0]
+        # print("ligand %s" % cpx_name, ligand != None)
+        
+        # Load receptor
+        receptor = MolFromPDBFile("%s/%s/%s_protein.pdb" % (load_dir, cpx_name, cpx_name))
+        # print("receptor %s" % cpx_name, receptor != None)
+
+        pickle.dump(
+            [ligand, receptor],
+            open(
+                "../data/%s" % key,
+                "wb"
+            )
         )
-    )
+
+list_processes = []
+
+batch_size = int(len(all_keys) / os.cpu_count()) + 1
+start_idx = 0
+stop_idx = start_idx + batch_size
+
+for idx in range(os.cpu_count()):
+    list_processes.append(Process(target=process_keys, 
+                                args=(all_keys[start_idx:stop_idx])))
+
+    start_idx = stop_idx
+    stop_idx += batch_size
+    if stop_idx > len(all_keys):
+        stop_idx = len(all_keys)
+
+for idx in range(len(list_processes)):
+    list_processes[idx].start()
+
+for idx in range(len(list_processes)):
+    list_processes[idx].join()
