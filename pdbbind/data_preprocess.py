@@ -61,7 +61,7 @@ stop_idx = start_idx + batch_size
 
 for idx in range(os.cpu_count()):
     list_processes.append(Process(target=process_keys, 
-                                args=(all_keys[start_idx:stop_idx])))
+                                args=(all_keys[start_idx:stop_idx],)))
 
     start_idx = stop_idx
     stop_idx += batch_size
