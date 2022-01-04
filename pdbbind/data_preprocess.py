@@ -53,23 +53,28 @@ def process_keys(keys):
             )
         )
 
-list_processes = []
+def main():
+    list_processes = []
 
-batch_size = int(len(all_keys) / os.cpu_count()) + 1
-start_idx = 0
-stop_idx = start_idx + batch_size
+    batch_size = int(len(all_keys) / os.cpu_count()) + 1
+    start_idx = 0
+    stop_idx = start_idx + batch_size
 
-for idx in range(os.cpu_count()):
-    list_processes.append(Process(target=process_keys, 
-                                args=(all_keys[start_idx:stop_idx],)))
+    for idx in range(os.cpu_count()):
+        list_processes.append(Process(target=process_keys, 
+                                    args=(all_keys[start_idx:stop_idx],)))
 
-    start_idx = stop_idx
-    stop_idx += batch_size
-    if stop_idx > len(all_keys):
-        stop_idx = len(all_keys)
+        start_idx = stop_idx
+        stop_idx += batch_size
+        if stop_idx > len(all_keys):
+            stop_idx = len(all_keys)
 
-for idx in range(len(list_processes)):
-    list_processes[idx].start()
+    for idx in range(len(list_processes)):
+        list_processes[idx].start()
 
-for idx in range(len(list_processes)):
-    list_processes[idx].join()
+    for idx in range(len(list_processes)):
+        list_processes[idx].join()
+
+# %%
+if __name__ == '__main__':
+    main()
