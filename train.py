@@ -108,8 +108,8 @@ def main():
         test_pred = []
         
         model.train()
-        for i_batch, sample in tqdm(enumerate(train_dataloader)):
-            print("Training batch %d/%d"%(i_batch, total_batch_train))
+        for i_batch, sample in enumerate(train_dataloader):
+            print("Training batch %d/%d"%(i_batch, total_batch_train), end="\r", flush=True)
             model.zero_grad()
             H, A1, A2, Y, V, keys = sample 
             H, A1, A2, Y, V = H.to(device), A1.to(device), A2.to(device),\
@@ -133,8 +133,8 @@ def main():
             #if i_batch>10 : break
         
         model.eval()
-        for i_batch, sample in tqdm(enumerate(test_dataloader)):
-            print("Testing batch %d/%d"%(i_batch, total_batch_test))
+        for i_batch, sample in enumerate(test_dataloader):
+            print("Testing batch %d/%d"%(i_batch, total_batch_test), end="\r", flush=True)
             model.zero_grad()
             H, A1, A2, Y, V, keys = sample 
             H, A1, A2, Y, V = H.to(device), A1.to(device), A2.to(device),\
