@@ -118,6 +118,10 @@ for epoch in range(num_epochs):
         train_losses.append(loss.data.cpu().numpy())
         train_true.append(Y.data.cpu().numpy())
         train_pred.append(pred.data.cpu().numpy())
+
+        H, A1, A2, Y, V = H.to("cpu"), A1.to("cpu"), A2.to("cpu"),\
+                            Y.to("cpu"), V.to("cpu")
+
         #if i_batch>10 : break
     
     model.eval()
@@ -136,6 +140,10 @@ for epoch in range(num_epochs):
         test_losses.append(loss.data.cpu().numpy())
         test_true.append(Y.data.cpu().numpy())
         test_pred.append(pred.data.cpu().numpy())
+
+        H, A1, A2, Y, V = H.to("cpu"), A1.to("cpu"), A2.to("cpu"),\
+                            Y.to("cpu"), V.to("cpu")
+                            
         #if i_batch>10 : break
         
     train_losses = np.mean(np.array(train_losses))

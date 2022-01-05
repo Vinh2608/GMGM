@@ -15,12 +15,12 @@ class GAT_gate(torch.nn.Module):
 
     def forward(self, x, adj):
         h = self.W(x)
-        batch_size = h.size()[0]
+        # batch_size = h.size()[0]
         N = h.size()[1]
         e = torch.einsum('ijl,ikl->ijk', (torch.matmul(h,self.A), h))
         e = e + e.permute((0,2,1))
-        zero_vec = -9e15*torch.ones_like(e)
-        attention = torch.where(adj > 0, e, zero_vec)
+        # zero_vec = -9e15*torch.ones_like(e)
+        attention = torch.where(adj > 0, e, torch.zeros(1).cuda())
         attention = F.softmax(attention, dim=1)
         #attention = F.dropout(attention, self.dropout, training=self.training)
         #h_prime = torch.matmul(attention, h)
