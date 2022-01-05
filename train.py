@@ -12,6 +12,9 @@ import argparse
 import time
 from torch.utils.data import DataLoader                                     
 from dataset import MolDataset, collate_fn, DTISampler
+from tqdm import tqdm
+import math
+
 now = time.localtime()
 s = "%04d-%02d-%02d %02d:%02d:%02d" % (now.tm_year, now.tm_mon, now.tm_mday, now.tm_hour, now.tm_min, now.tm_sec)
 print (s)
@@ -66,99 +69,108 @@ model = gnn(args)
 print ('number of parameters : ', sum(p.numel() for p in model.parameters() if p.requires_grad))
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 model = utils.initialize_model(model, device)
+total_batch_train = math.ceil(len(train_keys) / args.batch_size)
+total_batch_test = math.ceil(len(test_keys) / args.batch_size)
 
-#train and test dataset
-train_dataset = MolDataset(train_keys, args.dude_data_fpath)
-test_dataset = MolDataset(test_keys, args.dude_data_fpath)
-num_train_chembl = len([0 for k in train_keys if 'CHEMBL' in k])
-num_train_decoy = len([0 for k in train_keys if 'CHEMBL' not in k])
-train_weights = [1/num_train_chembl if 'CHEMBL' in k else 1/num_train_decoy for k in train_keys]
-train_sampler = DTISampler(train_weights, len(train_weights), replacement=True)                     
-train_dataloader = DataLoader(train_dataset, args.batch_size, \
-     shuffle=False, num_workers = args.num_workers, collate_fn=collate_fn,\
-     sampler = train_sampler)
-test_dataloader = DataLoader(test_dataset, args.batch_size, \
-     shuffle=False, num_workers = args.num_workers, collate_fn=collate_fn)
+def main():
+    #train and test dataset
+    train_dataset = MolDataset(train_keys, args.dude_data_fpath)
+    test_dataset = MolDataset(test_keys, args.dude_data_fpath)
+    num_train_chembl = len([0 for k in train_keys if 'CHEMBL' in k])
+    num_train_decoy = len([0 for k in train_keys if 'CHEMBL' not in k])
+    train_weights = [1/num_train_chembl if 'CHEMBL' in k else 1/num_train_decoy for k in train_keys]
+    train_sampler = DTISampler(train_weights, len(train_weights), replacement=True)                     
+    train_dataloader = DataLoader(train_dataset, args.batch_size, \
+        shuffle=False, num_workers = args.num_workers, collate_fn=collate_fn,\
+        sampler = train_sampler)
+    test_dataloader = DataLoader(test_dataset, args.batch_size, \
+        shuffle=False, num_workers = args.num_workers, collate_fn=collate_fn)
 
-#optimizer
-optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    #optimizer
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
-#loss function
-loss_fn = nn.BCELoss()
+    #loss function
+    loss_fn = nn.BCELoss()
 
-for epoch in range(num_epochs):
-    st = time.time()
-    #collect losses of each iteration
-    train_losses = [] 
-    test_losses = [] 
+    for epoch in range(num_epochs):
+        st = time.time()
+        print("EPOCH %d:"%epoch)
+        #collect losses of each iteration
+        train_losses = [] 
+        test_losses = [] 
 
-    #collect true label of each iteration
-    train_true = []
-    test_true = []
-    
-    #collect predicted label of each iteration
-    train_pred = []
-    test_pred = []
-    
-    model.train()
-    for i_batch, sample in enumerate(train_dataloader):
-        model.zero_grad()
-        H, A1, A2, Y, V, keys = sample 
-        H, A1, A2, Y, V = H.to(device), A1.to(device), A2.to(device),\
+        #collect true label of each iteration
+        train_true = []
+        test_true = []
+        
+        #collect predicted label of each iteration
+        train_pred = []
+        test_pred = []
+        
+        model.train()
+        for i_batch, sample in tqdm(enumerate(train_dataloader)):
+            print("Training batch %d/%d"%(i_batch, total_batch_train))
+            model.zero_grad()
+            H, A1, A2, Y, V, keys = sample 
+            H, A1, A2, Y, V = H.to(device), A1.to(device), A2.to(device),\
+                                Y.to(device), V.to(device)
+            
+            #train neural network
+            pred = model.train_model((H, A1, A2, V))
+
+            loss = loss_fn(pred, Y) 
+            loss.backward()
+            optimizer.step()
+            
+            #collect loss, true label and predicted label
+            train_losses.append(loss.data.cpu().numpy())
+            train_true.append(Y.data.cpu().numpy())
+            train_pred.append(pred.data.cpu().numpy())
+
+            H, A1, A2, Y, V = H.to("cpu"), A1.to("cpu"), A2.to("cpu"),\
+                                Y.to("cpu"), V.to("cpu")
+
+            #if i_batch>10 : break
+        
+        model.eval()
+        for i_batch, sample in tqdm(enumerate(test_dataloader)):
+            print("Testing batch %d/%d"%(i_batch, total_batch_test))
+            model.zero_grad()
+            H, A1, A2, Y, V, keys = sample 
+            H, A1, A2, Y, V = H.to(device), A1.to(device), A2.to(device),\
                             Y.to(device), V.to(device)
+            
+            #train neural network
+            pred = model.train_model((H, A1, A2, V))
+
+            loss = loss_fn(pred, Y) 
+            
+            #collect loss, true label and predicted label
+            test_losses.append(loss.data.cpu().numpy())
+            test_true.append(Y.data.cpu().numpy())
+            test_pred.append(pred.data.cpu().numpy())
+
+            H, A1, A2, Y, V = H.to("cpu"), A1.to("cpu"), A2.to("cpu"),\
+                                Y.to("cpu"), V.to("cpu")
+
+            #if i_batch>10 : break
+            
+        train_losses = np.mean(np.array(train_losses))
+        test_losses = np.mean(np.array(test_losses))
         
-        #train neural network
-        pred = model.train_model((H, A1, A2, V))
-
-        loss = loss_fn(pred, Y) 
-        loss.backward()
-        optimizer.step()
+        train_pred = np.concatenate(np.array(train_pred), 0)
+        test_pred = np.concatenate(np.array(test_pred), 0)
         
-        #collect loss, true label and predicted label
-        train_losses.append(loss.data.cpu().numpy())
-        train_true.append(Y.data.cpu().numpy())
-        train_pred.append(pred.data.cpu().numpy())
+        train_true = np.concatenate(np.array(train_true), 0)
+        test_true = np.concatenate(np.array(test_true), 0)
 
-        H, A1, A2, Y, V = H.to("cpu"), A1.to("cpu"), A2.to("cpu"),\
-                            Y.to("cpu"), V.to("cpu")
+        train_roc = roc_auc_score(train_true, train_pred) 
+        test_roc = roc_auc_score(test_true, test_pred) 
+        end = time.time()
+        print ("%s\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f" \
+        %(epoch, train_losses, test_losses, train_roc, test_roc, end-st))
+        name = save_dir + '/save_'+str(epoch)+'.pt'
+        torch.save(model.state_dict(), name)
 
-        #if i_batch>10 : break
-    
-    model.eval()
-    for i_batch, sample in enumerate(test_dataloader):
-        model.zero_grad()
-        H, A1, A2, Y, V, keys = sample 
-        H, A1, A2, Y, V = H.to(device), A1.to(device), A2.to(device),\
-                          Y.to(device), V.to(device)
-        
-        #train neural network
-        pred = model.train_model((H, A1, A2, V))
-
-        loss = loss_fn(pred, Y) 
-        
-        #collect loss, true label and predicted label
-        test_losses.append(loss.data.cpu().numpy())
-        test_true.append(Y.data.cpu().numpy())
-        test_pred.append(pred.data.cpu().numpy())
-
-        H, A1, A2, Y, V = H.to("cpu"), A1.to("cpu"), A2.to("cpu"),\
-                            Y.to("cpu"), V.to("cpu")
-                            
-        #if i_batch>10 : break
-        
-    train_losses = np.mean(np.array(train_losses))
-    test_losses = np.mean(np.array(test_losses))
-    
-    train_pred = np.concatenate(np.array(train_pred), 0)
-    test_pred = np.concatenate(np.array(test_pred), 0)
-    
-    train_true = np.concatenate(np.array(train_true), 0)
-    test_true = np.concatenate(np.array(test_true), 0)
-
-    train_roc = roc_auc_score(train_true, train_pred) 
-    test_roc = roc_auc_score(test_true, test_pred) 
-    end = time.time()
-    print ("%s\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f" \
-    %(epoch, train_losses, test_losses, train_roc, test_roc, end-st))
-    name = save_dir + '/save_'+str(epoch)+'.pt'
-    torch.save(model.state_dict(), name)
+if __name__=="__main__":
+    main()
