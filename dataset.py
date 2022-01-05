@@ -31,17 +31,17 @@ class MolDataset(Dataset):
         self.keys = keys
         self.data_dir = data_dir
 
-        del_keys = []
-        for i, key in tqdm(enumerate(self.keys)):
-            with open(os.path.join(self.data_dir, key), 'rb') as f:
-                m1, m2 = pickle.load(f)
-                if m1 == None or m2 == None:
-                    del_keys.append(i)
+        # del_keys = []
+        # for i, key in tqdm(enumerate(self.keys)):
+        #     with open(os.path.join(self.data_dir, key), 'rb') as f:
+        #         m1, m2 = pickle.load(f)
+        #         if m1 == None or m2 == None:
+        #             del_keys.append(i)
 
-        for i_key in del_keys[::-1]:
-            del self.keys[i_key]
+        # for i_key in del_keys[::-1]:
+        #     del self.keys[i_key]
 
-        print("Total key usable:", len(self.keys))
+        # print("Total key usable:", len(self.keys))
 
     def __len__(self):
         return len(self.keys)
