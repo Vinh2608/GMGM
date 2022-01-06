@@ -40,8 +40,8 @@ class gnn(torch.nn.Module):
             c_hs2 = self.gconv1[k](c_hs, c_adjs2)
             c_hs = c_hs2-c_hs1
             c_hs = F.dropout(c_hs, p=self.dropout_rate, training=self.training)
-        c_hs_l = c_hs*c_valid[0].unsqueeze(-1).repeat(1, 1, c_hs.size(-1))
-        c_hs_p = c_hs*c_valid[1].unsqueeze(-1).repeat(1, 1, c_hs.size(-1))
+        c_hs_l = c_hs*c_valid[:,0].unsqueeze(-1).repeat(1, 1, c_hs.size(-1))
+        c_hs_p = c_hs*c_valid[:,1].unsqueeze(-1).repeat(1, 1, c_hs.size(-1))
         output = torch.cat([c_hs_l.sum(1), c_hs_p.sum(1)], 1)
         return output
 
