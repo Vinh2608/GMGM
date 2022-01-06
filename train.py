@@ -5,11 +5,10 @@ import numpy as np
 import utils
 import torch.nn as nn
 import torch
-import time
 import os
 from sklearn.metrics import roc_auc_score
 import argparse
-import time
+from datetime import datetime
 from torch.utils.data import DataLoader                                     
 from dataset import MolDataset, collate_fn, DTISampler
 from tqdm import tqdm
@@ -20,6 +19,7 @@ s = "%04d-%02d-%02d %02d:%02d:%02d" % (now.tm_year, now.tm_mon, now.tm_mday, now
 print (s)
 
 parser = argparse.ArgumentParser()
+parser.add_argument("--ckpt", help="Load ckpt file", type=str, default = "")
 parser.add_argument("--lr", help="learning rate", type=float, default = 0.0001)
 parser.add_argument("--epoch", help="epoch", type=int, default = 10000)
 parser.add_argument("--ngpu", help="number of gpu", type=int, default = 1)
@@ -31,6 +31,7 @@ parser.add_argument("--n_FC_layer", help="number of FC layer", type=int, default
 parser.add_argument("--d_FC_layer", help="dimension of FC layer", type=int, default = 128)
 parser.add_argument("--dude_data_fpath", help="file path of dude data", type=str, default='data/')
 parser.add_argument("--save_dir", help="save directory of model parameter", type=str, default = './save/')
+parser.add_argument("--log_dir", help="logging directory", type=str, default = 'log/')
 parser.add_argument("--initial_mu", help="initial value of mu", type=float, default = 4.0)
 parser.add_argument("--initial_dev", help="initial value of dev", type=float, default = 1.0)
 parser.add_argument("--dropout_rate", help="dropout_rate", type=float, default = 0.0)
@@ -46,10 +47,13 @@ ngpu = args.ngpu
 batch_size = args.batch_size
 dude_data_fpath = args.dude_data_fpath
 save_dir = args.save_dir
+log_dir = args.log_dir
 
 #make save dir if it doesn't exist
 if not os.path.isdir(save_dir):
     os.system('mkdir ' + save_dir)
+if not os.path.isdir(log_dir):
+    os.system('mkdir ' + log_dir)
 
 #read data. data is stored in format of dictionary. Each key has information about protein-ligand complex.
 with open (args.train_keys, 'rb') as fp:
@@ -68,7 +72,7 @@ if args.ngpu>0:
 model = gnn(args)
 print ('number of parameters : ', sum(p.numel() for p in model.parameters() if p.requires_grad))
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-model = utils.initialize_model(model, device)
+model = utils.initialize_model(model, device, load_save_file=args.ckpt)
 total_batch_train = math.ceil(len(train_keys) / args.batch_size)
 total_batch_test = math.ceil(len(test_keys) / args.batch_size)
 
@@ -91,6 +95,11 @@ def main():
 
     #loss function
     loss_fn = nn.BCELoss()
+
+    # logging file
+    runtime = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
+    log_file = open(os.path.join(log_dir, "%s_trace.txt"%runtime), "w", encoding="utf-8")
+    log_file.write("epoch\ttrain_losses\ttest_losses\ttrain_roc\ttest_roc\ttime\n")
 
     for epoch in range(num_epochs):
         st = time.time()
@@ -167,10 +176,17 @@ def main():
         train_roc = roc_auc_score(train_true, train_pred) 
         test_roc = roc_auc_score(test_true, test_pred) 
         end = time.time()
+
         print ("%s\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f" \
         %(epoch, train_losses, test_losses, train_roc, test_roc, end-st))
+        
+        log_file.write("%s\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\n" \
+        %(epoch, train_losses, test_losses, train_roc, test_roc, end-st))
+
         name = save_dir + '/save_'+str(epoch)+'.pt'
         torch.save(model.state_dict(), name)
+
+    log_file.close()
 
 if __name__=="__main__":
     main()
