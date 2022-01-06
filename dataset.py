@@ -13,16 +13,30 @@ from tqdm import tqdm
 
 random.seed(0)
 
+def find_feature(atom_idx, feature_dict):
+    list_features = []
+    for key in feature_dict:
+        if atom_idx in key:
+            list_features.append(feature_dict[key])
+    return list_features
+
 def get_atom_feature(m, is_ligand=True):
     n = m.GetNumAtoms()
+    factory = utils.ChemicalFeaturesFactory.get_instance()
+    feature_by_group = {}
+    for f in factory.GetFeaturesForMol(m):
+        feature_by_group[f.GetAtomIds()] = f.GetFamily()
+
     H = []
     for i in range(n):
-        H.append(utils.atom_feature(m, i, None, None))
+        H.append(utils.atom_feature(m, i, find_feature(i, feature_by_group)))
+
     H = np.array(H)        
     if is_ligand:
-        H = np.concatenate([H, np.zeros((n,28))], 1)
+        H = np.concatenate([H, np.zeros((n,utils.N_atom_features))], 1)
     else:
-        H = np.concatenate([np.zeros((n,28)), H], 1)
+        H = np.concatenate([np.zeros((n,utils.N_atom_features)), H], 1)
+
     return H        
 
 class MolDataset(Dataset):
@@ -114,7 +128,7 @@ class DTISampler(Sampler):
 def collate_fn(batch):
     max_natoms = max([len(item['H']) for item in batch if item is not None])
     
-    H = np.zeros((len(batch), max_natoms, 56))
+    H = np.zeros((len(batch), max_natoms, 2*utils.N_atom_features))
     A1 = np.zeros((len(batch), max_natoms, max_natoms))
     A2 = np.zeros((len(batch), max_natoms, max_natoms))
     Y = np.zeros((len(batch),))

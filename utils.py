@@ -10,7 +10,7 @@ from ase import Atoms, Atom
 #from rdkit.Contrib.SA_Score.sascorer
 #import deepchem as dc
 
-N_atom_features = 28
+N_atom_features = 34
 
 
 def set_cuda_visible_device(ngpus):
@@ -62,14 +62,33 @@ def one_of_k_encoding_unk(x, allowable_set):
         x = allowable_set[-1]
     return list(map(lambda s: x == s, allowable_set))
 
-def atom_feature(m, atom_i, i_donor, i_acceptor):
+def atom_feature(m, atom_i, features):
 
     atom = m.GetAtomWithIdx(atom_i)
+    
     return np.array(one_of_k_encoding_unk(atom.GetSymbol(),
                                       ['C', 'N', 'O', 'S', 'F', 'P', 'Cl', 'Br', 'B', 'H']) +
-                    one_of_k_encoding_unk(atom.GetDegree(), [0, 1, 2, 3, 4, 5]) +
+                    one_of_k_encoding_unk(atom.GetDegree(), [0, 1, 2, 3, 4, 5, 6]) +
                     one_of_k_encoding_unk(atom.GetTotalNumHs(), [0, 1, 2, 3, 4]) +
                     one_of_k_encoding_unk(atom.GetImplicitValence(), [0, 1, 2, 3, 4, 5]) +
-                    [atom.GetIsAromatic()])    # (10, 6, 5, 6, 1) --> total 28
+                    [atom.GetIsAromatic(), int("Donor" in features), int("Acceptor" in features),
+                    int("PosIonizable" in features), int("NegIonizable" in features),
+                    int("LumpedHydrophobe" in features)])    # (10, 7, 5, 6, 6) --> total 34
 
     
+class ChemicalFeaturesFactory:
+    """This is a singleton class for RDKit base features."""
+    _instance = None
+
+    @classmethod
+    def get_instance(cls):
+        try:
+            from rdkit import RDConfig
+            from rdkit.Chem import ChemicalFeatures
+        except ModuleNotFoundError:
+            raise ImportError("This class requires RDKit to be installed.")
+
+        if not cls._instance:
+            fdefName = os.path.join(RDConfig.RDDataDir, 'BaseFeatures.fdef')
+            cls._instance = ChemicalFeatures.BuildFeatureFactory(fdefName)
+        return cls._instance
