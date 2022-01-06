@@ -77,8 +77,9 @@ class MolDataset(Dataset):
         agg_adj2[n1:,:n1] = np.copy(np.transpose(dm))
 
         #node indice for aggregation
-        valid = np.zeros((n1+n2,))
-        valid[:n1] = 1
+        valid = np.zeros((2, n1+n2,))
+        valid[0,:n1] = 1
+        valid[1,np.unique(np.where(dm < 5)[1])] = 1
         
         #pIC50 to class
         Y = 1 if 'CHEMBL' in key else 0
@@ -118,7 +119,7 @@ def collate_fn(batch):
     A1 = np.zeros((len(batch), max_natoms, max_natoms))
     A2 = np.zeros((len(batch), max_natoms, max_natoms))
     Y = np.zeros((len(batch),))
-    V = np.zeros((len(batch), max_natoms))
+    V = np.zeros((len(batch), 2, max_natoms))
     keys = []
     
     for i in range(len(batch)):
@@ -128,7 +129,7 @@ def collate_fn(batch):
         A1[i,:natom,:natom] = batch[i]['A1']
         A2[i,:natom,:natom] = batch[i]['A2']
         Y[i] = batch[i]['Y']
-        V[i,:natom] = batch[i]['V']
+        V[i,:,:natom] = batch[i]['V']
         keys.append(batch[i]['key'])
 
     H = torch.from_numpy(H).float()
