@@ -37,12 +37,24 @@ def process_keys(keys):
             load_dir = refined_dir
 
         # Load ligand
-        ligands_sdf = SDMolSupplier("%s/%s/%s_ligand.sdf" % (load_dir, cpx_name, cpx_name), sanitize=False)
-        ligand = ligands_sdf[0]
-        # print("ligand %s" % cpx_name, ligand != None)
+        try_mol2 = False
+        try:
+            ligands_sdf = SDMolSupplier("%s/%s/%s_ligand.sdf" % (load_dir, cpx_name, cpx_name))
+            ligand = ligands_sdf[0]
+            if ligand == None:
+                try_mol2 = True
+                # print("ligand %s" % cpx_name, ligand != None)
+        except:
+            try_mol2 = True
+            print("Error at %s" % cpx_name)
+
+        if try_mol2:
+            ligand = MolFromMol2File("%s/%s/%s_ligand.mol2" % (load_dir, cpx_name, cpx_name))
+            if ligand == None:
+                print("Error ligand %s" % cpx_name, ligand != None)
         
         # Load receptor
-        receptor = MolFromPDBFile("%s/%s/%s_protein.pdb" % (load_dir, cpx_name, cpx_name))
+        receptor = MolFromPDBFile("%s/%s/%s_pocket.pdb" % (load_dir, cpx_name, cpx_name))
         # print("receptor %s" % cpx_name, receptor != None)
 
         pickle.dump(
