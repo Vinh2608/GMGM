@@ -27,7 +27,7 @@ def get_atom_feature(m, is_ligand=True):
 
 class MolDataset(Dataset):
 
-    def __init__(self, keys, data_dir):
+    def __init__(self, keys, data_dir, train=True):
         self.keys = keys
         self.data_dir = data_dir
 
@@ -40,6 +40,11 @@ class MolDataset(Dataset):
 
         # for i_key in del_keys[::-1]:
         #     del self.keys[i_key]
+
+        # if train:
+        #     pickle.dump(self.keys, open("train_filtered.pkl", "wb"))
+        # else:
+        #     pickle.dump(self.keys, open("test_filtered.pkl", "wb"))
 
         # print("Total key usable:", len(self.keys))
 
