@@ -78,8 +78,8 @@ total_batch_test = math.ceil(len(test_keys) / args.batch_size)
 
 def main():
     #train and test dataset
-    train_dataset = MolDataset(train_keys, args.dude_data_fpath)
-    test_dataset = MolDataset(test_keys, args.dude_data_fpath)
+    train_dataset = MolDataset(train_keys, args.dude_data_fpath, train=True)
+    test_dataset = MolDataset(test_keys, args.dude_data_fpath, train=False)
     num_train_chembl = len([0 for k in train_keys if 'CHEMBL' in k])
     num_train_decoy = len([0 for k in train_keys if 'CHEMBL' not in k])
     train_weights = [1/num_train_chembl if 'CHEMBL' in k else 1/num_train_decoy for k in train_keys]
@@ -117,8 +117,7 @@ def main():
         test_pred = []
         
         model.train()
-        for i_batch, sample in enumerate(train_dataloader):
-            print("Training batch %d/%d"%(i_batch, total_batch_train), end="\r", flush=True)
+        for sample in tqdm(train_dataloader):
             model.zero_grad()
             H, A1, A2, Y, V, keys = sample 
             H, A1, A2, Y, V = H.to(device), A1.to(device), A2.to(device),\
@@ -142,8 +141,7 @@ def main():
             #if i_batch>10 : break
         
         model.eval()
-        for i_batch, sample in enumerate(test_dataloader):
-            print("Testing batch %d/%d"%(i_batch, total_batch_test), end="\r", flush=True)
+        for sample in tqdm(test_dataloader):
             model.zero_grad()
             H, A1, A2, Y, V, keys = sample 
             H, A1, A2, Y, V = H.to(device), A1.to(device), A2.to(device),\
