@@ -19,6 +19,44 @@ inactive_keys = pickle.load(open(inactive_keys_file, "rb"))
 inactive_keys = [x + "_ZINC" for x in inactive_keys]
 
 # %%
+class ChemicalFeaturesFactory:
+    """This is a singleton class for RDKit base features."""
+    _instance = None
+
+    @classmethod
+    def get_instance(cls):
+        try:
+            from rdkit import RDConfig
+            from rdkit.Chem import ChemicalFeatures
+        except ModuleNotFoundError:
+            raise ImportError("This class requires RDKit to be installed.")
+
+        if not cls._instance:
+            fdefName = os.path.join(RDConfig.RDDataDir, 'BaseFeatures.fdef')
+            cls._instance = ChemicalFeatures.BuildFeatureFactory(fdefName)
+        return cls._instance
+
+factory = ChemicalFeaturesFactory.get_instance()
+
+def get_feature_dict(mol):
+    if mol == None:
+        return {}
+        
+    feature_by_group = {}
+    for f in factory.GetFeaturesForMol(mol):
+        feature_by_group[f.GetAtomIds()] = f.GetFamily()
+
+    feature_dict = {}
+    for key in feature_by_group:
+        for atom_idx in key:
+            if atom_idx in feature_dict:
+                feature_dict[atom_idx].append(feature_by_group[key])
+            else:
+                feature_dict[atom_idx] = [feature_by_group[key]]
+
+    return feature_dict
+
+# %%
 general_dir = "v2020-other-PL"
 refined_dir = "refined-set"
 
@@ -52,13 +90,16 @@ def process_keys(keys):
             ligand = MolFromMol2File("%s/%s/%s_ligand.mol2" % (load_dir, cpx_name, cpx_name))
             if ligand == None:
                 print("Error ligand %s" % cpx_name, ligand != None)
-        
+
+        ligand_feature = get_feature_dict(ligand)
+
         # Load receptor
         receptor = MolFromPDBFile("%s/%s/%s_pocket.pdb" % (load_dir, cpx_name, cpx_name))
         # print("receptor %s" % cpx_name, receptor != None)
+        receptor_feature = get_feature_dict(receptor)
 
         pickle.dump(
-            [ligand, receptor],
+            [ligand, receptor, ligand_feature, receptor_feature],
             open(
                 "../data/%s" % key,
                 "wb"
