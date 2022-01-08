@@ -13,23 +13,18 @@ from tqdm import tqdm
 
 random.seed(0)
 
-def find_feature(atom_idx, feature_dict):
-    list_features = []
-    for key in feature_dict:
-        if atom_idx in key:
-            list_features.append(feature_dict[key])
-    return list_features
-
-def get_atom_feature(m, is_ligand=True):
+def get_atom_feature(m, feature, is_ligand=True):
     n = m.GetNumAtoms()
-    factory = utils.ChemicalFeaturesFactory.get_instance()
-    feature_by_group = {}
-    for f in factory.GetFeaturesForMol(m):
-        feature_by_group[f.GetAtomIds()] = f.GetFamily()
 
     H = []
+    atom_feature = []
     for i in range(n):
-        H.append(utils.atom_feature(m, i, find_feature(i, feature_by_group)))
+        if i in feature:
+            atom_feature = feature[i]
+        else:
+            atom_feature = []
+
+        H.append(utils.atom_feature(m, i, atom_feature))
 
     H = np.array(H)        
     if is_ligand:
@@ -48,7 +43,7 @@ class MolDataset(Dataset):
         # del_keys = []
         # for i, key in tqdm(enumerate(self.keys)):
         #     with open(os.path.join(self.data_dir, key), 'rb') as f:
-        #         m1, m2 = pickle.load(f)
+        #         m1, m2, _, __ = pickle.load(f)
         #         if m1 == None or m2 == None:
         #             del_keys.append(i)
 
@@ -69,21 +64,21 @@ class MolDataset(Dataset):
         #idx = 0
         key = self.keys[idx]
         with open(os.path.join(self.data_dir, key), 'rb') as f:
-            m1, m2 = pickle.load(f)
+            m1, m2, m1_feature, m2_feature = pickle.load(f)
 
         #prepare ligand
         n1 = m1.GetNumAtoms()
         c1 = m1.GetConformers()[0]
         d1 = np.array(c1.GetPositions())
         adj1 = GetAdjacencyMatrix(m1)+np.eye(n1)
-        H1 = get_atom_feature(m1, True)
+        H1 = get_atom_feature(m1, m1_feature, True)
 
         #prepare protein
         n2 = m2.GetNumAtoms()
         c2 = m2.GetConformers()[0]
         d2 = np.array(c2.GetPositions())
         adj2 = GetAdjacencyMatrix(m2)+np.eye(n2)
-        H2 = get_atom_feature(m2, False)
+        H2 = get_atom_feature(m2, m2_feature, False)
         
         #aggregation
         H = np.concatenate([H1, H2], 0)
