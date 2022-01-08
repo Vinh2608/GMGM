@@ -55,7 +55,7 @@ class MolDataset(Dataset):
         #idx = 0
         key = self.keys[idx]
         with open(os.path.join(self.data_dir, key), 'rb') as f:
-            m1, m2 = pickle.load(f)
+            m1, m2, _, _ = pickle.load(f)
 
         #prepare ligand
         n1 = m1.GetNumAtoms()
