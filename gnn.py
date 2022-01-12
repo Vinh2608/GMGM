@@ -80,13 +80,17 @@ class gnn(torch.nn.Module):
     def get_refined_adjs2(self, data):
         c_hs, c_adjs1, c_adjs2, c_valid = data
         c_hs = self.embede(c_hs)
-        hs_size = c_hs.size()
+        # hs_size = c_hs.size()
         c_adjs2 = torch.exp(-torch.pow(c_adjs2-self.mu.expand_as(c_adjs2), 2)/self.dev) + c_adjs1
-        regularization = torch.empty(len(self.gconv1), device=c_hs.device)
+        # regularization = torch.empty(len(self.gconv1), device=c_hs.device)
 
         for k in range(len(self.gconv1)):
             c_hs1 = self.gconv1[k](c_hs, c_adjs1)
-            c_hs2 = self.gconv1[k](c_hs, c_adjs2)
+            if k==len(self.gconv1)-1:
+                c_hs2, attention = self.gconv1[k](c_hs, c_adjs2, True)
+                return F.normalize(attention)
+            else:
+                c_hs2 = self.gconv1[k](c_hs, c_adjs2)
             c_hs = c_hs2-c_hs1
             c_hs = F.dropout(c_hs, p=self.dropout_rate, training=self.training)
 
