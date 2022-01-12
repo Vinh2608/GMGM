@@ -72,7 +72,7 @@ if args.ngpu>0:
 model = gnn(args)
 print ('number of parameters : ', sum(p.numel() for p in model.parameters() if p.requires_grad))
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-model = utils.initialize_model(model, device, load_save_file=args.ckpt)
+model = utils.initialize_model(model, device, load_save_file=args.ckpt, gpu=args.ngpu>0)
 total_batch_train = math.ceil(len(train_keys) / args.batch_size)
 total_batch_test = math.ceil(len(test_keys) / args.batch_size)
 

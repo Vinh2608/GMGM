@@ -31,9 +31,12 @@ def set_cuda_visible_device(ngpus):
         cmd+=str(empty[i])+','
     return cmd
 
-def initialize_model(model, device, load_save_file=False):
+def initialize_model(model, device, load_save_file=False, gpu=True):
     if load_save_file:
-        model.load_state_dict(torch.load(load_save_file)) 
+        if gpu:
+            model.load_state_dict(torch.load(load_save_file)) 
+        else:
+            model.load_state_dict(torch.load(load_save_file, map_location=torch.device('cpu'))) 
     else:
         for param in model.parameters():
             if param.dim() == 1:
