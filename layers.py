@@ -16,7 +16,7 @@ class GAT_gate(torch.nn.Module):
         if gpu > 0:
             self.zeros = self.zeros.cuda()
 
-    def forward(self, x, adj):
+    def forward(self, x, adj, get_attention=False):
         h = self.W(x)
         # batch_size = h.size()[0]
         N = h.size()[1]
@@ -32,4 +32,6 @@ class GAT_gate(torch.nn.Module):
        
         coeff = torch.sigmoid(self.gate(torch.cat([x,h_prime], -1))).repeat(1,1,x.size(-1))
         retval = coeff*x+(1-coeff)*h_prime
-        return retval
+        if not get_attention:
+            return retval
+        return retval, attention

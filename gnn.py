@@ -86,7 +86,11 @@ class gnn(torch.nn.Module):
 
         for k in range(len(self.gconv1)):
             c_hs1 = self.gconv1[k](c_hs, c_adjs1)
-            c_hs2 = self.gconv1[k](c_hs, c_adjs2)
+            if k==len(self.gconv1)-1:
+                c_hs2, attention = self.gconv1[k](c_hs, c_adjs2, True)
+                return F.normalize(attention)
+            else:
+                c_hs2 = self.gconv1[k](c_hs, c_adjs2)
             c_hs = c_hs2-c_hs1
             c_hs = F.dropout(c_hs, p=self.dropout_rate, training=self.training)
 
