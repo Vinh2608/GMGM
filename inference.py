@@ -11,8 +11,8 @@ import utils
 import os
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--active_threshold", help="active threshold", type=int, default = 0.5)
-parser.add_argument("--interaction_threshold", help="interaction threshold", type=int, default = 0.5)
+parser.add_argument("--active_threshold", help="active threshold", type=float, default = 0.5)
+parser.add_argument("--interaction_threshold", help="interaction threshold", type=float, default = 0.2)
 parser.add_argument("--ckpt", help="saved model file", type=str, default = "save/best_origin_bach_0.878.pt")
 parser.add_argument("--ngpu", help="number of gpu", type=int, default = 1)
 parser.add_argument("--batch_size", help="batch_size", type=int, default = 32)
@@ -148,14 +148,14 @@ if __name__ == '__main__':
     inference_gnn = InferenceGNN(args)
 
     # Load ligand
-    # ligands_sdf = SDMolSupplier("vidok/Ligand_6lu7.sdf" )
-    ligands_sdf = SDMolSupplier("pdbbind/refined-set/1b40/1b40_ligand.sdf" )
+    ligands_sdf = SDMolSupplier("vidok/Ligand_6lu7.sdf" )
+    # ligands_sdf = SDMolSupplier("pdbbind/refined-set/1b40/1b40_ligand.sdf" )
     ligand = ligands_sdf[0]
     print("ligand", ligand != None)
     
     # Load receptor
-    # receptor = MolFromPDBFile("vidok/Receptor_ViDok.pdb")
-    receptor = MolFromPDBFile("pdbbind/refined-set/1b40/1b40_pocket.pdb")
+    receptor = MolFromPDBFile("vidok/Receptor_ViDok.pdb")
+    # receptor = MolFromPDBFile("pdbbind/refined-set/1b40/1b40_pocket.pdb")
     print("receptor", receptor != None)
     
     results = inference_gnn.predict_label([ligand], [receptor])
