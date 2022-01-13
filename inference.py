@@ -13,7 +13,7 @@ import os
 parser = argparse.ArgumentParser()
 parser.add_argument("--active_threshold", help="active threshold", type=float, default = 0.5)
 parser.add_argument("--interaction_threshold", help="interaction threshold", type=float, default = 0.2)
-parser.add_argument("--ckpt", help="saved model file", type=str, default = "save/best_origin_bach_0.878.pt")
+parser.add_argument("--ckpt", help="saved model file", type=str, default = "save/best_origin_opt1_0.877.pt")
 parser.add_argument("--ngpu", help="number of gpu", type=int, default = 1)
 parser.add_argument("--batch_size", help="batch_size", type=int, default = 32)
 parser.add_argument("--n_graph_layer", help="number of GNN layer", type=int, default = 4)
@@ -85,9 +85,8 @@ class InferenceGNN():
         agg_adj2[n1:,:n1] = np.copy(np.transpose(dm))
 
         #node indice for aggregation
-        valid = np.zeros((2, n1+n2,))
-        valid[0,:n1] = 1
-        valid[1,np.unique(np.where(dm < 5)[1])] = 1
+        valid = np.zeros((n1+n2,))
+        valid[:n1] = 1
 
         sample = {
                   'H':H, \
@@ -105,7 +104,7 @@ class InferenceGNN():
         H = np.zeros((batch_size, max_natoms, 2*utils.N_atom_features))
         A1 = np.zeros((batch_size, max_natoms, max_natoms))
         A2 = np.zeros((batch_size, max_natoms, max_natoms))
-        V = np.zeros((batch_size, 2, max_natoms))
+        V = np.zeros((batch_size, max_natoms))
         
         for i in range(batch_size):
             natom = len(batch_input[i]['H'])
@@ -113,7 +112,7 @@ class InferenceGNN():
             H[i,:natom] = batch_input[i]['H']
             A1[i,:natom,:natom] = batch_input[i]['A1']
             A2[i,:natom,:natom] = batch_input[i]['A2']
-            V[i,:,:natom] = batch_input[i]['V']
+            V[i,:natom] = batch_input[i]['V']
 
         H = torch.from_numpy(H).float()
         A1 = torch.from_numpy(A1).float()
