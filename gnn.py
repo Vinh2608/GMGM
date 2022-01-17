@@ -26,26 +26,23 @@ class gnn(torch.nn.Module):
         self.mu = nn.Parameter(torch.Tensor([args.initial_mu]).float())
         self.dev = nn.Parameter(torch.Tensor([args.initial_dev]).float())
         self.embede = nn.Linear(2*N_atom_features, d_graph_layer, bias = False)
-        self.l_norm = torch.nn.LayerNorm(self.layers1[-1])
-        self.p_norm = torch.nn.LayerNorm(self.layers1[-1])
+        
 
     def embede_graph(self, data):
         c_hs, c_adjs1, c_adjs2, c_valid = data
         c_hs = self.embede(c_hs)
-        # hs_size = c_hs.size()
+        hs_size = c_hs.size()
         c_adjs2 = torch.exp(-torch.pow(c_adjs2-self.mu.expand_as(c_adjs2), 2)/self.dev) + c_adjs1
-        # regularization = torch.empty(len(self.gconv1), device=c_hs.device)
+        regularization = torch.empty(len(self.gconv1), device=c_hs.device)
 
         for k in range(len(self.gconv1)):
             c_hs1 = self.gconv1[k](c_hs, c_adjs1)
             c_hs2 = self.gconv1[k](c_hs, c_adjs2)
             c_hs = c_hs2-c_hs1
             c_hs = F.dropout(c_hs, p=self.dropout_rate, training=self.training)
-
         c_hs_l = c_hs*c_valid[:,0].unsqueeze(-1).repeat(1, 1, c_hs.size(-1))
         c_hs_p = c_hs*c_valid[:,1].unsqueeze(-1).repeat(1, 1, c_hs.size(-1))
-
-        output = torch.cat([self.l_norm(c_hs_l.sum(1)), self.p_norm(c_hs_p.sum(1))], 1)
+        output = torch.cat([c_hs_l.sum(1), c_hs_p.sum(1)], 1)
         return output
 
     def fully_connected(self, c_hs):
@@ -84,9 +81,9 @@ class gnn(torch.nn.Module):
     def get_refined_adjs2(self, data):
         c_hs, c_adjs1, c_adjs2, c_valid = data
         c_hs = self.embede(c_hs)
-        # hs_size = c_hs.size()
+        hs_size = c_hs.size()
         c_adjs2 = torch.exp(-torch.pow(c_adjs2-self.mu.expand_as(c_adjs2), 2)/self.dev) + c_adjs1
-        # regularization = torch.empty(len(self.gconv1), device=c_hs.device)
+        regularization = torch.empty(len(self.gconv1), device=c_hs.device)
 
         for k in range(len(self.gconv1)):
             c_hs1 = self.gconv1[k](c_hs, c_adjs1)
