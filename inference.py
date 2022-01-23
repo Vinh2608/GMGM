@@ -34,7 +34,7 @@ class InferenceGNN():
             os.environ['CUDA_VISIBLE_DEVICES']=cmd[:-1]
 
         self.model = gnn(args)
-        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.model = utils.initialize_model(self.model, device, load_save_file=args.ckpt, gpu=args.ngpu>0)
 
         self.model.eval()
@@ -123,10 +123,10 @@ class InferenceGNN():
             A2[i,:natom,:natom] = batch_input[i]['A2']
             V[i,:natom] = batch_input[i]['V']
 
-        H = torch.from_numpy(H).float()
-        A1 = torch.from_numpy(A1).float()
-        A2 = torch.from_numpy(A2).float()
-        V = torch.from_numpy(V).float()
+        H = torch.from_numpy(H).float().to(self.device)
+        A1 = torch.from_numpy(A1).float().to(self.device)
+        A2 = torch.from_numpy(A2).float().to(self.device)
+        V = torch.from_numpy(V).float().to(self.device)
 
         return H, A1, A2, V
 
