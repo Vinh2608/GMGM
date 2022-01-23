@@ -12,8 +12,9 @@ import os
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--active_threshold", help="active threshold", type=float, default = 0.5)
-parser.add_argument("--interaction_threshold", help="interaction threshold", type=float, default = 0.2)
-parser.add_argument("--ckpt", help="saved model file", type=str, default = "save/best_origin_opt1_0.877.pt")
+parser.add_argument("--interaction_threshold", help="interaction threshold", type=float, default = 0.1)
+parser.add_argument("--close_contact", help="close contact threshold", type=float, default = 5.5)
+parser.add_argument("--ckpt", help="saved model file", type=str, default = "save/best_origin_opt123_0.879.pt")
 parser.add_argument("--ngpu", help="number of gpu", type=int, default = 1)
 parser.add_argument("--batch_size", help="batch_size", type=int, default = 32)
 parser.add_argument("--n_graph_layer", help="number of GNN layer", type=int, default = 4)
@@ -39,13 +40,19 @@ class InferenceGNN():
         self.model.eval()
 
     @classmethod
-    def get_feature_dict(cls, mol):
+    def get_feature_by_group(cls, mol):
         if mol == None:
             return {}
             
         feature_by_group = {}
         for f in factory.GetFeaturesForMol(mol):
             feature_by_group[f.GetAtomIds()] = f.GetFamily()
+        return feature_by_group
+
+    @classmethod
+    def get_feature_dict(cls, mol=None, feature_by_group={}):
+        if mol != None:
+            feature_by_group = cls.get_feature_dict(mol)
 
         feature_dict = {}
         for key in feature_by_group:
@@ -57,13 +64,14 @@ class InferenceGNN():
 
         return feature_dict
 
-    def prepare_single_input(self, m1, m2):
+    def prepare_single_input(self, m1, m2, m1_feature=None, m2_feature=None):
         #prepare ligand
         n1 = m1.GetNumAtoms()
         c1 = m1.GetConformers()[0]
         d1 = np.array(c1.GetPositions())
         adj1 = GetAdjacencyMatrix(m1)+np.eye(n1)
-        m1_feature = self.get_feature_dict(m1)
+        if m1_feature == None:
+            m1_feature = self.get_feature_dict(m1)
         H1 = get_atom_feature(m1, m1_feature, True)
 
         #prepare protein
@@ -71,7 +79,8 @@ class InferenceGNN():
         c2 = m2.GetConformers()[0]
         d2 = np.array(c2.GetPositions())
         adj2 = GetAdjacencyMatrix(m2)+np.eye(n2)
-        m2_feature = self.get_feature_dict(m2)
+        if m2_feature == None:
+            m2_feature = self.get_feature_dict(m2)
         H2 = get_atom_feature(m2, m2_feature, False)
         
         #aggregation
@@ -121,63 +130,176 @@ class InferenceGNN():
 
         return H, A1, A2, V
 
-    def prepare_multi_input(self, list_ligands, list_receptors):
+    def prepare_multi_input(self, list_ligands, list_receptors, lf=None, rf=None):
         list_inputs = []
-        for li, re in zip(list_ligands, list_receptors):
-            list_inputs.append(self.prepare_single_input(li, re))
+        if lf != None and rf != None:
+            for li, re, lif, ref in zip(list_ligands, list_receptors, lf, rf):
+                list_inputs.append(self.prepare_single_input(li, re, lif, ref))
+        else:
+            for li, re in zip(list_ligands, list_receptors):
+                list_inputs.append(self.prepare_single_input(li, re))
 
         return list_inputs
 
-    def predict_label(self, list_ligands, list_receptors):
-        list_inputs = self.prepare_multi_input(list_ligands, list_receptors)
+    def predict_label(self, list_ligands, list_receptors, lf=None, rf=None):
+        list_inputs = self.prepare_multi_input(list_ligands, list_receptors, lf, rf)
         input_tensors = self.input_to_tensor(list_inputs)
         results = self.model.test_model(input_tensors)
         return results.cpu().detach().numpy()
 
-    def predict_interactions(self, list_ligands, list_receptors):
-        list_inputs = self.prepare_multi_input(list_ligands, list_receptors)
+    def predict_interactions(self, list_ligands, list_receptors, lf=None, rf=None):
+        list_inputs = self.prepare_multi_input(list_ligands, list_receptors, lf, rf)
         input_tensors = self.input_to_tensor(list_inputs)
         results = self.model.get_refined_adjs2(input_tensors)
         return results.cpu().detach().numpy()
 
+def get_feature_by_atom(features, atom):
+    return dict(filter(lambda x: atom in x[0], features.items()))
+
+def check_basic_condition(interactions, ligand, receptor, lfg, rfg):
+    filterd_interactions = []
+    list_interactions = list(interactions.keys())
+
+    while len(list_interactions) > 0:
+        interaction = list_interactions.pop(0)
+        la, ra = interaction
+        laf = get_feature_by_atom(lfg, la) # {(a1, a2): feature}
+        raf = get_feature_by_atom(rfg, ra) # {(a1, a2): feature}
+
+        if ("Donor" in laf.values() and "Acceptor" in raf.values()) or \
+           ("Donor" in raf.values() and "Acceptor" in laf.values()):
+           filterd_interactions.append(interaction)
+
+        if "Aromatic" in laf.values() and receptor.GetAtomWithIdx(int(ra)).GetSymbol() == "C":
+            for group, feature in laf.items():
+                if feature == "Aromatic":
+                    for atom in group:
+                        # Remove other atom in aromatic
+                        if (atom, ra) in list_interactions:
+                            list_interactions.remove((atom, ra))
+
+                        filterd_interactions.append((atom, ra))
+                    break
+
+        if "Aromatic" in raf.values() and ligand.GetAtomWithIdx(int(la)).GetSymbol() == "C":
+            for group, feature in raf.items():
+                if feature == "Aromatic":
+                    for atom in group:
+                        # Remove other atom in aromatic
+                        if (la, atom) in list_interactions:
+                            list_interactions.remove((la, atom))
+
+                        filterd_interactions.append((la, atom))
+                    break
+
+        if "LumpedHydrophobe" in laf.values() and "Aromatic" in raf.values():
+            for lgroup, lfeature in laf.items():
+                if lfeature == "LumpedHydrophobe":
+                    for rgroup, rfeature in raf.items():
+                        if rfeature == "Aromatic":
+                            for latom in lgroup:
+                                for ratom in rgroup:
+                                    if (latom, ratom) in list_interactions:
+                                        list_interactions.remove((latom, ratom))
+
+                                    filterd_interactions.append((latom, ratom))
+                        break
+
+                    break
+
+        if "LumpedHydrophobe" in raf.values() and "Aromatic" in laf.values():
+            for lgroup, lfeature in laf.items():
+                if lfeature == "Aromatic":
+                    for rgroup, rfeature in raf.items():
+                        if rfeature == "LumpedHydrophobe":
+                            for latom in lgroup:
+                                for ratom in rgroup:
+                                    if (latom, ratom) in list_interactions:
+                                        list_interactions.remove((latom, ratom))
+
+                                    filterd_interactions.append((latom, ratom))
+                        break
+
+                    break
+    return filterd_interactions
+
+def read_ground_truth(gt_file):
+    gt_interactions = []
+    with open(gt_file, "r", encoding="utf-8") as f:
+        lines = f.read().split("\n")
+        while len(lines) > 0:
+            line = lines.pop(0).split(",")
+            if not line:
+                continue
+
+            for ra in line[1:]:
+                if ra:
+                    gt_interactions.append((int(line[0]), int(ra)))
+    return gt_interactions        
+
+def cal_prf(gt_interactions, found_interactions):
+    TP = list(set(gt_interactions).intersection(set(found_interactions)))
+    precision = len(TP) / len(found_interactions)
+    recall = len(TP) / len(gt_interactions)
+    F1 = 2 * precision * recall / (precision + recall)
+    return precision, recall, F1
+
 if __name__ == '__main__':
+    # Initialize
     args = parser.parse_args()
     print(args)
-
     inference_gnn = InferenceGNN(args)
+    groundtruth = read_ground_truth("vidok/ground_truth.csv")
 
     # Load ligand
     ligands_sdf = SDMolSupplier("vidok/Ligand_6lu7.sdf" )
     # ligands_sdf = SDMolSupplier("pdbbind/refined-set/1b40/1b40_ligand.sdf" )
     ligand = ligands_sdf[0]
     print("ligand", ligand != None)
+    # print(ligand.GetNumAtoms())
+    lfg = InferenceGNN.get_feature_by_group(ligand)
+    lf = InferenceGNN.get_feature_dict(feature_by_group=lfg)
+    lp = np.array(ligand.GetConformers()[0].GetPositions())
     
     # Load receptor
     receptor = MolFromPDBFile("vidok/Receptor_ViDok.pdb")
     # receptor = MolFromPDBFile("pdbbind/refined-set/1b40/1b40_pocket.pdb")
     print("receptor", receptor != None)
+    # print(receptor.GetNumAtoms())
+    rfg = InferenceGNN.get_feature_by_group(receptor)
+    rf = InferenceGNN.get_feature_dict(feature_by_group=rfg)
+    rp = np.array(receptor.GetConformers()[0].GetPositions())
     
-    results = inference_gnn.predict_label([ligand], [receptor])
+    results = inference_gnn.predict_label([ligand], [receptor], [lf], [rf])
     print("result", results[0] > args.active_threshold)
 
     if results[0] > args.active_threshold:
-        interactions = inference_gnn.predict_interactions([ligand], [receptor])
+        interactions = inference_gnn.predict_interactions([ligand], [receptor], [lf], [rf])
         # print("interactions", interactions[0])
         n_ligand_atom = ligand.GetNumAtoms()
         x_coord, y_coord = np.where(interactions[0] >= args.interaction_threshold)
 
-        print("interaction: (ligand atom, receptor atom)\n")
         interaction_dict = {}
         for x, y in zip(x_coord, y_coord):
-            if x < n_ligand_atom and y >= n_ligand_atom:
-                interaction_dict[(x, y-n_ligand_atom)] = interactions[0][x][y]
-                # print("(", x, y-n_ligand_atom, ")")
+            if x < n_ligand_atom and y >= n_ligand_atom \
+                and np.linalg.norm(lp[x] - rp[y-n_ligand_atom]) < args.close_contact and (x in lf or y-n_ligand_atom in rf):
+                interaction_dict[(x, y-n_ligand_atom)] = interactions[0][x][y]                
 
-            if x >= n_ligand_atom and y < n_ligand_atom and (y, x-n_ligand_atom) not in interaction_dict:
+            if x >= n_ligand_atom and y < n_ligand_atom and (y, x-n_ligand_atom) not in interaction_dict \
+                and np.linalg.norm(lp[y] - rp[x-n_ligand_atom]) < args.close_contact and (y in lf or x-n_ligand_atom in rf):
                 interaction_dict[(y, x-n_ligand_atom)] = interactions[0][x][y]
-                # print("(", y, x-n_ligand_atom, ")")
+
+        interaction_list = check_basic_condition(interaction_dict, ligand, receptor, lfg, rfg)
+
+        precision, recall, f1_score = cal_prf(groundtruth, interaction_list)
+        print("Precision: %.5f\nRecall: %.5f\nF1 Score: %.5f" % (precision, recall, f1_score))
 
         with open("interactions/%s.csv" % datetime.now().strftime("%Y-%m-%dT%H-%M-%S"), "w", encoding="utf8") as f:
-            f.write("ligand_atom,receptor_atom,score\n")
-            for key, value in interaction_dict.items():
-                f.write("{:d},{:d},{:.5f}\n".format(key[0], key[1], value))
+            f.write("ligand_atom,receptor_atom,latom_feature,ratom_feature\n")
+            for key in interaction_list:
+                laf, raf = "", ""
+                if key[0] in lf:
+                    laf = str(lf[key[0]])
+                if key[1] in rf:
+                    raf = str(rf[key[1]])
+                f.write("{:d},{:d},{:s},{:s}\n".format(key[0], key[1], laf, raf))
