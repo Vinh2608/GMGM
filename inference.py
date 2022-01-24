@@ -35,7 +35,7 @@ class InferenceGNN():
 
         self.model = gnn(args)
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        self.model = utils.initialize_model(self.model, device, load_save_file=args.ckpt, gpu=args.ngpu>0)
+        self.model = utils.initialize_model(self.model, self.device, load_save_file=args.ckpt, gpu=args.ngpu>0)
 
         self.model.eval()
 
@@ -300,7 +300,7 @@ if __name__ == '__main__':
             for key in interaction_list:
                 laf, raf = "", ""
                 if key[0] in lf:
-                    laf = str(lf[key[0]])
+                    laf = str(lf[key[0]]).replace(",", ";")
                 if key[1] in rf:
-                    raf = str(rf[key[1]])
+                    raf = str(rf[key[1]]).replace(",", ";")
                 f.write("{:d},{:d},{:s},{:s}\n".format(key[0], key[1], laf, raf))
