@@ -14,19 +14,11 @@ class gnn(torch.nn.Module):
         n_FC_layer = args.n_FC_layer
         d_FC_layer = args.d_FC_layer
         self.dropout_rate = args.dropout_rate 
-        cal_nhop = None
 
-        if args.tatic == "static":
-            cal_nhop = lambda x: args.nhop
-        elif args.tatic == "cont":
-            cal_nhop = lambda x: x + 1
-        elif args.tatic == "jump":
-            cal_nhop = lambda x: 2 * x + 1
 
         self.layers1 = [d_graph_layer for i in range(n_graph_layer+1)]
-        self.gconv1 = nn.ModuleList([GAT_gate(self.layers1[i], self.layers1[i+1], cal_nhop(i), args.ngpu>0) 
-                                    for i in range(len(self.layers1)-1)])
-
+        self.gconv1 = nn.ModuleList([GAT_gate(self.layers1[i], self.layers1[i+1], gpu=args.ngpu) for i in range(len(self.layers1)-1)]) 
+        
         self.FC = nn.ModuleList([nn.Linear(self.layers1[-1]*2, d_FC_layer) if i==0 else
                                  nn.Linear(d_FC_layer, 1) if i==n_FC_layer-1 else
                                  nn.Linear(d_FC_layer, d_FC_layer) for i in range(n_FC_layer)])
