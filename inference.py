@@ -8,6 +8,7 @@ import numpy as np
 import argparse
 import torch
 import utils
+from collections import defaultdict
 import os
 
 parser = argparse.ArgumentParser()
@@ -158,7 +159,7 @@ def get_feature_by_atom(features, atom):
     return dict(filter(lambda x: atom in x[0], features.items()))
 
 def check_basic_condition(interactions, ligand, receptor, lfg, rfg):
-    filterd_interactions = []
+    filterd_interactions = defaultdict(lambda: [])
     list_interactions = list(interactions.keys())
 
     while len(list_interactions) > 0:
@@ -169,7 +170,7 @@ def check_basic_condition(interactions, ligand, receptor, lfg, rfg):
 
         if ("Donor" in laf.values() and "Acceptor" in raf.values()) or \
            ("Donor" in raf.values() and "Acceptor" in laf.values()):
-           filterd_interactions.append((la, ra, "Hydrogen"))
+           filterd_interactions[(la, ra)].append("Hydrogen")
 
         if "Aromatic" in laf.values() and receptor.GetAtomWithIdx(int(ra)).GetSymbol() == "C":
             for group, feature in laf.items():
@@ -177,9 +178,9 @@ def check_basic_condition(interactions, ligand, receptor, lfg, rfg):
                     for atom in group:
                         # Remove other atom in aromatic
                         if (atom, ra) in list_interactions:
-                            list_interactions.remove((atom, ra, "Hydropobe"))
+                            list_interactions.remove((atom, ra))
 
-                        filterd_interactions.append((atom, ra, "Hydropobe"))
+                        filterd_interactions[(atom, ra)].append("Hydropobe")
                     break
 
         if "Aromatic" in raf.values() and ligand.GetAtomWithIdx(int(la)).GetSymbol() == "C":
@@ -188,9 +189,9 @@ def check_basic_condition(interactions, ligand, receptor, lfg, rfg):
                     for atom in group:
                         # Remove other atom in aromatic
                         if (la, atom) in list_interactions:
-                            list_interactions.remove((la, atom, "Hydropobe"))
+                            list_interactions.remove((la, atom))
 
-                        filterd_interactions.append((la, atom, "Hydropobe"))
+                        filterd_interactions[(la, atom)].append("Hydropobe")
                     break
 
         if "LumpedHydrophobe" in laf.values() and "Aromatic" in raf.values():
@@ -201,9 +202,9 @@ def check_basic_condition(interactions, ligand, receptor, lfg, rfg):
                             for latom in lgroup:
                                 for ratom in rgroup:
                                     if (latom, ratom) in list_interactions:
-                                        list_interactions.remove((latom, ratom, "Hydropobe"))
+                                        list_interactions.remove((latom, ratom))
 
-                                    filterd_interactions.append((latom, ratom, "Hydropobe"))
+                                    filterd_interactions[(latom, ratom)].append("Hydropobe")
                         break
 
                     break
@@ -216,9 +217,9 @@ def check_basic_condition(interactions, ligand, receptor, lfg, rfg):
                             for latom in lgroup:
                                 for ratom in rgroup:
                                     if (latom, ratom) in list_interactions:
-                                        list_interactions.remove((latom, ratom, "Hydropobe"))
+                                        list_interactions.remove((latom, ratom))
 
-                                    filterd_interactions.append((latom, ratom, "Hydropobe"))
+                                    filterd_interactions[(latom, ratom)].append("Hydropobe")
                         break
 
                     break
@@ -239,7 +240,8 @@ def read_ground_truth(gt_file):
     return gt_interactions        
 
 def cal_prf(gt_interactions, found_interactions):
-    TP = list(set(gt_interactions).intersection(set(found_interactions)))
+    _found_interactions = list(found_interactions.keys())
+    TP = list(set(gt_interactions).intersection(set(_found_interactions)))
     precision = len(TP) / len(found_interactions)
     recall = len(TP) / len(gt_interactions)
     F1 = 2 * precision * recall / (precision + recall)
@@ -291,16 +293,17 @@ if __name__ == '__main__':
                 interaction_dict[(y, x-n_ligand_atom)] = interactions[0][x][y]
 
         interaction_list = check_basic_condition(interaction_dict, ligand, receptor, lfg, rfg)
+        interaction_list = {ik:iv for ik, iv in interaction_list.items() if iv != []}
 
         precision, recall, f1_score = cal_prf(groundtruth, interaction_list)
         print("Precision: %.5f\nRecall: %.5f\nF1 Score: %.5f" % (precision, recall, f1_score))
 
         with open("interactions/%s.csv" % datetime.now().strftime("%Y-%m-%dT%H-%M-%S"), "w", encoding="utf8") as f:
-            f.write("ligand_atom,receptor_atom,latom_feature,ratom_feature\n")
-            for key in interaction_list:
+            f.write("ligand_atom,receptor_atom,latom_feature,ratom_feature,interaction_type\n")
+            for key, interaction_type in interaction_list.items():
                 laf, raf = "", ""
                 if key[0] in lf:
                     laf = str(lf[key[0]]).replace(",", ";")
                 if key[1] in rf:
                     raf = str(rf[key[1]]).replace(",", ";")
-                f.write("{:d},{:d},{:s},{:s}\n".format(key[0], key[1], laf, raf))
+                f.write("{:d},{:d},{:s},{:s},{:s}\n".format(key[0], key[1], laf, raf, interaction_type))
