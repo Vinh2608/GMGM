@@ -169,7 +169,7 @@ def check_basic_condition(interactions, ligand, receptor, lfg, rfg):
 
         if ("Donor" in laf.values() and "Acceptor" in raf.values()) or \
            ("Donor" in raf.values() and "Acceptor" in laf.values()):
-           filterd_interactions.append(interaction)
+           filterd_interactions.append((la, ra, "Hydrogen"))
 
         if "Aromatic" in laf.values() and receptor.GetAtomWithIdx(int(ra)).GetSymbol() == "C":
             for group, feature in laf.items():
@@ -177,9 +177,9 @@ def check_basic_condition(interactions, ligand, receptor, lfg, rfg):
                     for atom in group:
                         # Remove other atom in aromatic
                         if (atom, ra) in list_interactions:
-                            list_interactions.remove((atom, ra))
+                            list_interactions.remove((atom, ra, "Hydropobe"))
 
-                        filterd_interactions.append((atom, ra))
+                        filterd_interactions.append((atom, ra, "Hydropobe"))
                     break
 
         if "Aromatic" in raf.values() and ligand.GetAtomWithIdx(int(la)).GetSymbol() == "C":
@@ -188,9 +188,9 @@ def check_basic_condition(interactions, ligand, receptor, lfg, rfg):
                     for atom in group:
                         # Remove other atom in aromatic
                         if (la, atom) in list_interactions:
-                            list_interactions.remove((la, atom))
+                            list_interactions.remove((la, atom, "Hydropobe"))
 
-                        filterd_interactions.append((la, atom))
+                        filterd_interactions.append((la, atom, "Hydropobe"))
                     break
 
         if "LumpedHydrophobe" in laf.values() and "Aromatic" in raf.values():
@@ -201,9 +201,9 @@ def check_basic_condition(interactions, ligand, receptor, lfg, rfg):
                             for latom in lgroup:
                                 for ratom in rgroup:
                                     if (latom, ratom) in list_interactions:
-                                        list_interactions.remove((latom, ratom))
+                                        list_interactions.remove((latom, ratom, "Hydropobe"))
 
-                                    filterd_interactions.append((latom, ratom))
+                                    filterd_interactions.append((latom, ratom, "Hydropobe"))
                         break
 
                     break
@@ -216,9 +216,9 @@ def check_basic_condition(interactions, ligand, receptor, lfg, rfg):
                             for latom in lgroup:
                                 for ratom in rgroup:
                                     if (latom, ratom) in list_interactions:
-                                        list_interactions.remove((latom, ratom))
+                                        list_interactions.remove((latom, ratom, "Hydropobe"))
 
-                                    filterd_interactions.append((latom, ratom))
+                                    filterd_interactions.append((latom, ratom, "Hydropobe"))
                         break
 
                     break
