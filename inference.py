@@ -299,11 +299,12 @@ if __name__ == '__main__':
         print("Precision: %.5f\nRecall: %.5f\nF1 Score: %.5f" % (precision, recall, f1_score))
 
         with open("interactions/%s.csv" % datetime.now().strftime("%Y-%m-%dT%H-%M-%S"), "w", encoding="utf8") as f:
-            f.write("ligand_atom,receptor_atom,latom_feature,ratom_feature,interaction_type\n")
+            f.write("ligand_atom,receptor_atom,score,latom_feature,ratom_feature,interaction_type\n")
+            print(interaction_dict)
             for key, interaction_type in interaction_list.items():
                 laf, raf = "", ""
                 if key[0] in lf:
                     laf = str(lf[key[0]]).replace(",", ";")
                 if key[1] in rf:
                     raf = str(rf[key[1]]).replace(",", ";")
-                f.write("{:d},{:d},{:s},{:s},{:s}\n".format(key[0], key[1], laf, raf, interaction_type))
+                f.write("{:d},{:d},{:f},{:s},{:s},{:s}\n".format(key[0], key[1], interactions[0][key[0]][key[0]+key[1]], laf.replace(",",";"), raf.replace(",",";"), str(interaction_type).replace(",",";")))
