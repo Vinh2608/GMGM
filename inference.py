@@ -10,6 +10,8 @@ import torch
 import utils
 from collections import defaultdict
 import os
+import glob
+import pickle
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--active_threshold", help="active threshold", type=float, default = 0.5)
@@ -25,7 +27,8 @@ parser.add_argument("--d_FC_layer", help="dimension of FC layer", type=int, defa
 parser.add_argument("--initial_mu", help="initial value of mu", type=float, default = 4.0)
 parser.add_argument("--initial_dev", help="initial value of dev", type=float, default = 1.0)
 parser.add_argument("--dropout_rate", help="dropout_rate", type=float, default = 0.0)
-
+parser.add_argument("--tatic", help="tactic of defining number of hops", type=str, default = "static", choices=["static", "cont", "jump"])
+parser.add_argument("--nhop", help="number of hops", type=int, default = 1)
 factory = utils.ChemicalFeaturesFactory.get_instance()
 
 class InferenceGNN():
@@ -223,6 +226,10 @@ def check_basic_condition(interactions, ligand, receptor, lfg, rfg):
                         break
 
                     break
+       
+        if (la, ra) not in filterd_interactions and len(list(laf.values())) > 0:
+            filterd_interactions[(la,ra)].append("Unknown")
+            
     return filterd_interactions
 
 def read_ground_truth(gt_file):
@@ -250,60 +257,77 @@ def cal_prf(gt_interactions, found_interactions):
 if __name__ == '__main__':
     # Initialize
     args = parser.parse_args()
-    print(args)
+#     print(args)
     inference_gnn = InferenceGNN(args)
-    groundtruth = read_ground_truth("vidok/ground_truth.csv")
+    # groundtruth = read_ground_truth("vidok/ground_truth.csv")
 
-    # Load ligand
-    ligands_sdf = SDMolSupplier("vidok/Ligand_6lu7.sdf" )
-    # ligands_sdf = SDMolSupplier("pdbbind/refined-set/1b40/1b40_ligand.sdf" )
-    ligand = ligands_sdf[0]
-    print("ligand", ligand != None)
-    # print(ligand.GetNumAtoms())
-    lfg = InferenceGNN.get_feature_by_group(ligand)
-    lf = InferenceGNN.get_feature_dict(feature_by_group=lfg)
-    lp = np.array(ligand.GetConformers()[0].GetPositions())
-    
-    # Load receptor
-    receptor = MolFromPDBFile("vidok/Receptor_ViDok.pdb")
-    # receptor = MolFromPDBFile("pdbbind/refined-set/1b40/1b40_pocket.pdb")
-    print("receptor", receptor != None)
-    # print(receptor.GetNumAtoms())
-    rfg = InferenceGNN.get_feature_by_group(receptor)
-    rf = InferenceGNN.get_feature_dict(feature_by_group=rfg)
-    rp = np.array(receptor.GetConformers()[0].GetPositions())
-    
-    results = inference_gnn.predict_label([ligand], [receptor], [lf], [rf])
-    print("result", results[0] > args.active_threshold)
+    list_file = glob.glob('../Vidok_Crawler/Data_Vidok_Infer/*.sdf')
+    names = [s.split('/')[-1].split('.')[0] for s in list_file]
+#     print(list_files)
+    count = 0
+    path_ligand = '../Vidok_Crawler/Data_Vidok_Infer/'
+    path_receptor = '../Vidok_Crawler/Data_Vidok_Infer/'
+    for name in names:
+#       name = lf.split('/')[-1].split('.')[0]
+#       path = lf.split(name)[0]
+      # Load ligand
+      ligands_sdf = SDMolSupplier(path_ligand+name+'.sdf')
+      # ligands_sdf = SDMolSupplier("pdbbind/refined-set/1b40/1b40_ligand.sdf" )
+      ligand = ligands_sdf[0]
+      # print("ligand", ligand != None)
+      # print(ligand.GetNumAtoms())
+#       with open (path+name, 'rb') as fp:
+#         ligand, receptor = pickle.load(fp)
+        
+      lfg = InferenceGNN.get_feature_by_group(ligand)
+      lf = InferenceGNN.get_feature_dict(feature_by_group=lfg)
+      lp = np.array(ligand.GetConformers()[0].GetPositions())
+      
+      # Load receptor
+      receptor = MolFromPDBFile(path_receptor+name+'_pocket.pdb')
+      # receptor = MolFromPDBFile("pdbbind/refined-set/1b40/1b40_pocket.pdb")
+      # print("receptor", receptor != None)
+      # print(receptor.GetNumAtoms())
+      rfg = InferenceGNN.get_feature_by_group(receptor)
+      rf = InferenceGNN.get_feature_dict(feature_by_group=rfg)
+      rp = np.array(receptor.GetConformers()[0].GetPositions())
+      
+      results = inference_gnn.predict_label([ligand], [receptor], [lf], [rf])
+      # print("result", results[0] > args.active_threshold)
 
-    if results[0] > args.active_threshold:
-        interactions = inference_gnn.predict_interactions([ligand], [receptor], [lf], [rf])
-        # print("interactions", interactions[0])
-        n_ligand_atom = ligand.GetNumAtoms()
-        x_coord, y_coord = np.where(interactions[0] >= args.interaction_threshold)
+      if results[0] > args.active_threshold:
+          interactions = inference_gnn.predict_interactions([ligand], [receptor], [lf], [rf])
+          # print("interactions", interactions[0])
+          n_ligand_atom = ligand.GetNumAtoms()
+          x_coord, y_coord = np.where(interactions[0] >= args.interaction_threshold)
 
-        interaction_dict = {}
-        for x, y in zip(x_coord, y_coord):
-            if x < n_ligand_atom and y >= n_ligand_atom \
-                and np.linalg.norm(lp[x] - rp[y-n_ligand_atom]) < args.close_contact and (x in lf or y-n_ligand_atom in rf):
-                interaction_dict[(x, y-n_ligand_atom)] = interactions[0][x][y]                
+          interaction_dict = {}
+          for x, y in zip(x_coord, y_coord):
+              if x < n_ligand_atom and y >= n_ligand_atom \
+                  and np.linalg.norm(lp[x] - rp[y-n_ligand_atom]) < args.close_contact and (x in lf or y-n_ligand_atom in rf):
+                  interaction_dict[(x, y-n_ligand_atom)] = interactions[0][x][y]                
 
-            if x >= n_ligand_atom and y < n_ligand_atom and (y, x-n_ligand_atom) not in interaction_dict \
-                and np.linalg.norm(lp[y] - rp[x-n_ligand_atom]) < args.close_contact and (y in lf or x-n_ligand_atom in rf):
-                interaction_dict[(y, x-n_ligand_atom)] = interactions[0][x][y]
+              if x >= n_ligand_atom and y < n_ligand_atom and (y, x-n_ligand_atom) not in interaction_dict \
+                  and np.linalg.norm(lp[y] - rp[x-n_ligand_atom]) < args.close_contact and (y in lf or x-n_ligand_atom in rf):
+                  interaction_dict[(y, x-n_ligand_atom)] = interactions[0][x][y]
 
-        interaction_list = check_basic_condition(interaction_dict, ligand, receptor, lfg, rfg)
-        interaction_list = {ik:iv for ik, iv in interaction_list.items() if iv != []}
+          interaction_list = check_basic_condition(interaction_dict, ligand, receptor, lfg, rfg)
+          interaction_list = {ik:iv for ik, iv in interaction_list.items() if iv != []}
 
-        precision, recall, f1_score = cal_prf(groundtruth, interaction_list)
-        print("Precision: %.5f\nRecall: %.5f\nF1 Score: %.5f" % (precision, recall, f1_score))
 
-        with open("interactions/%s.csv" % datetime.now().strftime("%Y-%m-%dT%H-%M-%S"), "w", encoding="utf8") as f:
-            f.write("ligand_atom,receptor_atom,latom_feature,ratom_feature,interaction_type\n")
-            for key, interaction_type in interaction_list.items():
-                laf, raf = "", ""
-                if key[0] in lf:
-                    laf = str(lf[key[0]]).replace(",", ";")
-                if key[1] in rf:
-                    raf = str(rf[key[1]]).replace(",", ";")
-                f.write("{:d},{:d},{:s},{:s},{:s}\n".format(key[0], key[1], laf, raf, interaction_type))
+          with open("interactions/{}.csv".format(name), "w", encoding="utf8") as f:
+              f.write("ligand_atom,receptor_atom,latom_feature,ratom_feature,interaction_type\n")
+              for key, interaction_type in interaction_list.items():
+                  laf, raf = "", ""
+                  interac = str(interaction_type)
+                  if key[0] in lf:
+                      laf = str(lf[key[0]]).replace(",", ";")
+                  if key[1] in rf:
+                      raf = str(rf[key[1]]).replace(",", ";")
+                  if len(interaction_type)>1:
+                    interac = str(interaction_type).replace("', '","'; '")
+                  f.write("{:d},{:d},{:s},{:s},{:s}\n".format(key[0], key[1], laf, raf, interac))
+      print("Name: {} Index: {} Result: {}".format(name,count,results[0] > args.active_threshold))
+      count+=1
+      
+

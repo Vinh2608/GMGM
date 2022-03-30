@@ -1,0 +1,6 @@
+[submodule "Vidok_Crawler"]
+	path = Vidok_Crawler
+	url = https://github.com/ViDok-BK/Vidok_Crawler.git
+[submodule "Visualize"]
+	path = Visualize
+	url = https://github.com/ViDok-BK/Visualize.git

@@ -4,3 +4,4 @@ pdbbind/refined-set
 pdbbind/v2020-other-PL
 data/*_CHEMBL
 data/*_ZINC
+interactions/*.csv
