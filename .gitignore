@@ -5,3 +5,6 @@ pdbbind/v2020-other-PL
 data/*_CHEMBL
 data/*_ZINC
 interactions/*.csv
+save/*.pt
+data/*
+log/*.txt

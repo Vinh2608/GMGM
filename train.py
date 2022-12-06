@@ -31,7 +31,7 @@ parser.add_argument("--n_graph_layer", help="number of GNN layer", type=int, def
 parser.add_argument("--d_graph_layer", help="dimension of GNN layer", type=int, default = 140)
 parser.add_argument("--n_FC_layer", help="number of FC layer", type=int, default = 4)
 parser.add_argument("--d_FC_layer", help="dimension of FC layer", type=int, default = 128)
-parser.add_argument("--dude_data_fpath", help="file path of dude data", type=str, default='data/')
+parser.add_argument("--data_fpath", help="file path of dude data", type=str, default='data/')
 parser.add_argument("--save_dir", help="save directory of model parameter", type=str, default = './save/')
 parser.add_argument("--log_dir", help="logging directory", type=str, default = 'log/')
 parser.add_argument("--initial_mu", help="initial value of mu", type=float, default = 4.0)
@@ -47,7 +47,7 @@ num_epochs = args.epoch
 lr = args.lr
 ngpu = args.ngpu
 batch_size = args.batch_size
-dude_data_fpath = args.dude_data_fpath
+data_fpath = args.data_fpath
 save_dir = args.save_dir
 log_dir = args.log_dir
 
@@ -80,8 +80,8 @@ total_batch_test = math.ceil(len(test_keys) / args.batch_size)
 
 def main():
     #train and test dataset
-    train_dataset = MolDataset(train_keys, args.dude_data_fpath, train=True)
-    test_dataset = MolDataset(test_keys, args.dude_data_fpath, train=False)
+    train_dataset = MolDataset(train_keys, args.data_fpath, train=True)
+    test_dataset = MolDataset(test_keys, args.data_fpath, train=False)
     num_train_chembl = len([0 for k in train_keys if 'CHEMBL' in k])
     num_train_decoy = len([0 for k in train_keys if 'CHEMBL' not in k])
     train_weights = [1/num_train_chembl if 'CHEMBL' in k else 1/num_train_decoy for k in train_keys]
@@ -96,7 +96,7 @@ def main():
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     #loss function
-    loss_fn = nn.BCELoss()
+    loss_fn = nn.L1Loss()
 
     # logging file
     runtime = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
@@ -140,7 +140,7 @@ def main():
             H, A1, A2, Y, V = H.to("cpu"), A1.to("cpu"), A2.to("cpu"),\
                                 Y.to("cpu"), V.to("cpu")
 
-            #if i_batch>10 : break
+            # break
         
         model.eval()
         for sample in tqdm(test_dataloader):
@@ -167,16 +167,17 @@ def main():
         train_losses = np.mean(np.array(train_losses))
         test_losses = np.mean(np.array(test_losses))
         
-        train_pred = np.concatenate(np.array(train_pred), 0)
-        test_pred = np.concatenate(np.array(test_pred), 0)
+        # train_pred = np.concatenate(np.array(train_pred), 0)
+        # test_pred = np.concatenate(np.array(test_pred), 0)
         
-        train_true = np.concatenate(np.array(train_true), 0)
-        test_true = np.concatenate(np.array(test_true), 0)
+        # train_true = np.concatenate(np.array(train_true), 0)
+        # test_true = np.concatenate(np.array(test_true), 0)
 
-        train_roc = roc_auc_score(train_true, train_pred) 
-        test_roc = roc_auc_score(test_true, test_pred) 
+        train_roc = 0 # roc_auc_score(train_true, train_pred) 
+        test_roc = 0 # roc_auc_score(test_true, test_pred) 
         end = time.time()
-
+           
+        print("Epoch, Train MAE, Test MAE, -, -, Time")
         print ("%s\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f" \
         %(epoch, train_losses, test_losses, train_roc, test_roc, end-st))
         

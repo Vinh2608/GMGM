@@ -1,6 +1,6 @@
 from torch.utils.data import Dataset
 from torch.utils.data.sampler import Sampler
-import utils
+from .utils import *
 import numpy as np
 import torch
 import random
@@ -24,13 +24,13 @@ def get_atom_feature(m, feature, is_ligand=True):
         else:
             atom_feature = []
 
-        H.append(utils.atom_feature(m, i, atom_feature))
+        H.append(atom_feature(m, i, atom_feature))
 
     H = np.array(H)        
     if is_ligand:
-        H = np.concatenate([H, np.zeros((n,utils.N_atom_features))], 1)
+        H = np.concatenate([H, np.zeros((n,N_atom_features))], 1)
     else:
-        H = np.concatenate([np.zeros((n,utils.N_atom_features)), H], 1)
+        H = np.concatenate([np.zeros((n,N_atom_features)), H], 1)
 
     return H        
 
@@ -97,6 +97,7 @@ class MolDataset(Dataset):
         
         #pIC50 to class
         Y = 1 if 'CHEMBL' in key else 0
+        Y = float(key.split('_')[-1])
 
         #if n1+n2 > 300 : return None
         sample = {
@@ -129,7 +130,7 @@ class DTISampler(Sampler):
 def collate_fn(batch):
     max_natoms = max([len(item['H']) for item in batch if item is not None])
     
-    H = np.zeros((len(batch), max_natoms, 2*utils.N_atom_features))
+    H = np.zeros((len(batch), max_natoms, 2*N_atom_features))
     A1 = np.zeros((len(batch), max_natoms, max_natoms))
     A2 = np.zeros((len(batch), max_natoms, max_natoms))
     Y = np.zeros((len(batch),))

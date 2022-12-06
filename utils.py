@@ -4,7 +4,6 @@ from scipy import sparse
 import os.path
 import time
 import torch.nn as nn
-from ase import Atoms, Atom
 
 #from rdkit.Contrib.SA_Score.sascorer import calculateScore
 #from rdkit.Contrib.SA_Score.sascorer

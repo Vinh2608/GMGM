@@ -1,10 +1,11 @@
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
-from utils import *
 import time
 from multiprocessing import Pool
-from layers import GAT_gate
+
+from .utils import N_atom_features
+from .layers import GAT_gate
 
 class gnn(torch.nn.Module):
     def __init__(self, args):
@@ -41,7 +42,7 @@ class gnn(torch.nn.Module):
         c_hs = self.embede(c_hs)
         hs_size = c_hs.size()
         c_adjs2 = torch.exp(-torch.pow(c_adjs2-self.mu.expand_as(c_adjs2), 2)/self.dev) + c_adjs1
-        regularization = torch.empty(len(self.gconv1), device=c_hs.device)
+        # regularization = torch.empty(len(self.gconv1), device=c_hs.device)
 
         for k in range(len(self.gconv1)):
             c_hs1 = self.gconv1[k](c_hs, c_adjs1)
@@ -54,7 +55,7 @@ class gnn(torch.nn.Module):
         return output
 
     def fully_connected(self, c_hs):
-        regularization = torch.empty(len(self.FC)*1-1, device=c_hs.device)
+        # regularization = torch.empty(len(self.FC)*1-1, device=c_hs.device)
 
         for k in range(len(self.FC)):
             #c_hs = self.FC[k](c_hs)
@@ -65,7 +66,7 @@ class gnn(torch.nn.Module):
             else:
                 c_hs = self.FC[k](c_hs)
 
-        c_hs = torch.sigmoid(c_hs)
+        # c_hs = torch.relu(c_hs)
 
         return c_hs
 
