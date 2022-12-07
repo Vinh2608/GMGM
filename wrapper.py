@@ -141,11 +141,10 @@ class GMGM:
         
         #train neural network
         pred = self.model.train_model((H, A1, A2, V))
+        loss = self.loss_fn(pred, Y)
 
         H, A1, A2, Y, V = H.to("cpu"), A1.to("cpu"), A2.to("cpu"),\
                                 Y.to("cpu"), V.to("cpu")
-                                
-        loss = self.loss_fn(pred, Y)
         
         if training:
             loss.backward()
@@ -188,7 +187,7 @@ class GMGM:
         valid[1,np.unique(np.where(dm < 5)[1])] = 1
 
         sample = {
-                  'H':H, \
+                  'H': H, \
                   'A1': agg_adj1, \
                   'A2': agg_adj2, \
                   'V': valid, \
@@ -207,7 +206,7 @@ class GMGM:
         A1 = np.zeros((batch_size, max_natoms, max_natoms))
         A2 = np.zeros((batch_size, max_natoms, max_natoms))
         V = np.zeros((batch_size, 2, max_natoms))
-        Y = np.zeros((batch_size, 1))
+        Y = np.zeros((batch_size,))
         
         for i in range(batch_size):
             natom = len(batch_input[i]['H'])
@@ -224,7 +223,7 @@ class GMGM:
         V = torch.from_numpy(V).float().to(self.device)
         Y = torch.from_numpy(Y).float().to(self.device)
 
-        return H, A1, A2, V, 
+        return H, A1, A2, Y, V
     
     def prepare_batch_input(self, batch, batch_size=32):
         # Yield batches of data until all batches have been yielded
@@ -235,16 +234,17 @@ class GMGM:
             for j in range(batch_size):
                 if i*batch_size+j < len(batch):
                     m1, m2, m1_feature, m2_feature, label = batch[i*batch_size+j]
-                    batch_input.append(self.prepare_single_input(m1, m2, m1_feature, m2_feature, label))
-                else:
-                    batch_input.append(None)
+                    
+                    single_input = self.prepare_single_input(m1, m2, m1_feature, m2_feature, label)
+                    batch_input.append(single_input)
                     
             yield self.input_to_tensor(batch_input)
         
     def save(self, path):
-        pass
+        torch.save(self.model.state_dict(), path)
             
     def load(self, path):
-        pass
+        self.args.ckpt = path
+        self.model = initialize_model(self.model, self.device, load_save_file=self.args.ckpt, gpu=self.args.ngpu>0)
     
         

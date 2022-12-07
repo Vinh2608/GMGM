@@ -64,7 +64,7 @@ def one_of_k_encoding_unk(x, allowable_set):
         x = allowable_set[-1]
     return list(map(lambda s: x == s, allowable_set))
 
-def atom_feature(m, atom_i, features):
+def construct_atom_feature_vector(m, atom_i, features):
 
     atom = m.GetAtomWithIdx(atom_i)
     

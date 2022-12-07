@@ -1,6 +1,6 @@
 from torch.utils.data import Dataset
 from torch.utils.data.sampler import Sampler
-from .utils import *
+from .utils import N_atom_features, construct_atom_feature_vector
 import numpy as np
 import torch
 import random
@@ -24,7 +24,7 @@ def get_atom_feature(m, feature, is_ligand=True):
         else:
             atom_feature = []
 
-        H.append(atom_feature(m, i, atom_feature))
+        H.append(construct_atom_feature_vector(m, i, atom_feature))
 
     H = np.array(H)        
     if is_ligand:
