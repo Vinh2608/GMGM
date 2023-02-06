@@ -95,8 +95,11 @@ class MolDataset(Dataset):
         valid[0,:n1] = 1
         valid[1,np.unique(np.where(dm < 5)[1])] = 1
         
-        #pIC50 to class
-        Y = 1 if 'CHEMBL' in key else 0
+        #pIC50 to class #key is the name of the file   
+        Y = float(key.split('.')[0].split('_')[1])
+
+        #this is for classification (old code)
+        #Y = 1 if 'CHEMBL' in key else 0
 
         #if n1+n2 > 300 : return None
         sample = {

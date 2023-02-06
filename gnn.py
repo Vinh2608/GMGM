@@ -65,7 +65,8 @@ class gnn(torch.nn.Module):
             else:
                 c_hs = self.FC[k](c_hs)
 
-        c_hs = torch.sigmoid(c_hs)
+        #comment this out for regression
+        #c_hs = torch.sigmoid(c_hs)
 
         return c_hs
 
