@@ -22,7 +22,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--ckpt", help="Load ckpt file", type=str, default = "")
 parser.add_argument("--lr", help="learning rate", type=float, default = 0.0001)
 parser.add_argument("--epoch", help="epoch", type=int, default = 10000)
-parser.add_argument("--ngpu", help="number of gpu", type=int, default = 1)
+parser.add_argument("--ngpu", help="number of gpu", type=int, default = 0) #o day default la 1 a nghen
 parser.add_argument("--batch_size", help="batch_size", type=int, default = 32)
 parser.add_argument("--num_workers", help="number of workers", type=int, default = os.cpu_count())
 parser.add_argument("--n_graph_layer", help="number of GNN layer", type=int, default = 4)
@@ -31,7 +31,8 @@ parser.add_argument("--n_FC_layer", help="number of FC layer", type=int, default
 parser.add_argument("--d_FC_layer", help="dimension of FC layer", type=int, default = 128)
 parser.add_argument("--dude_data_fpath", help="file path of dude data", type=str, default='data/')
 parser.add_argument("--save_dir", help="save directory of model parameter", type=str, default = './save/')
-parser.add_argument("--log_dir", help="logging directory", type=str, default = 'log/')
+parser.add_argument("--log_dir", help="logging directory", type=str, default = 'log/'
+)
 parser.add_argument("--initial_mu", help="initial value of mu", type=float, default = 4.0)
 parser.add_argument("--initial_dev", help="initial value of dev", type=float, default = 1.0)
 parser.add_argument("--dropout_rate", help="dropout_rate", type=float, default = 0.0)
@@ -93,8 +94,8 @@ def main():
     #optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
-    #loss function
-    loss_fn = nn.BCELoss()
+    #loss function #doi loss thanh MAE hoac MSE
+    loss_fn = nn.L1Loss()
 
     # logging file
     runtime = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
@@ -171,15 +172,15 @@ def main():
         train_true = np.concatenate(np.array(train_true), 0)
         test_true = np.concatenate(np.array(test_true), 0)
 
-        train_roc = roc_auc_score(train_true, train_pred) 
-        test_roc = roc_auc_score(test_true, test_pred) 
+        #train_roc = roc_auc_score(train_true, train_pred) 
+        #test_roc = roc_auc_score(test_true, test_pred) 
         end = time.time()
 
-        print ("%s\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f" \
-        %(epoch, train_losses, test_losses, train_roc, test_roc, end-st))
+        print ("%s\t%.3f\t%.3f\t%.3f" \
+        %(epoch, train_losses, test_losses, end-st))
         
-        log_file.write("%s\t%.3f\t%.3f\t%.3f\t%.3f\t%.3f\n" \
-        %(epoch, train_losses, test_losses, train_roc, test_roc, end-st))
+        log_file.write("%s\t%.3f\t%.3f\t%.3f\n" \
+        %(epoch, train_losses, test_losses, end-st))
 
         name = save_dir + '/save_'+str(epoch)+'.pt'
         torch.save(model.state_dict(), name)
