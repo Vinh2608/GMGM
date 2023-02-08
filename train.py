@@ -22,7 +22,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--ckpt", help="Load ckpt file", type=str, default = "")
 parser.add_argument("--lr", help="learning rate", type=float, default = 0.0001)
 parser.add_argument("--epoch", help="epoch", type=int, default = 10000)
-parser.add_argument("--ngpu", help="number of gpu", type=int, default = 0) #o day default la 1 a nghen
+parser.add_argument("--ngpu", help="number of gpu", type=int, default = 1) #o day default la 1 a nghen
 parser.add_argument("--batch_size", help="batch_size", type=int, default = 32)
 parser.add_argument("--num_workers", help="number of workers", type=int, default = os.cpu_count())
 parser.add_argument("--tatic", help="tactic of defining number of hops", type=str, default = "static", choices=["static", "cont", "jump"])
