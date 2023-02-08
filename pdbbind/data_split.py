@@ -19,6 +19,16 @@ def main():
 
     keys = [x + "_" + str(id_kd[x]) for x in keys]
 
+    data_dir = '../data/'
+    name_remove = []
+    for key in (keys):
+        with open(os.path.join(data_dir, key), 'rb') as f:
+            m1, m2, m1_feature, m2_feature = pickle.load(f)
+            if (m1 == None or m2 == None or m1_feature == None or m2_feature == None):
+              name_remove.append(key)
+    for name in name_remove:
+      keys.remove(name)
+
     train_keys, test_keys = train_test_split(keys, test_size=0.2, random_state=42)
 
     with open("../keys/train_pdbbind.pkl", 'wb') as f:
