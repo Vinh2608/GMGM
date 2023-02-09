@@ -104,6 +104,7 @@ def main():
     log_file = open(os.path.join(log_dir, "%s_trace.txt"%runtime), "w", encoding="utf-8")
     log_file.write("epoch\ttrain_losses\ttest_losses\ttrain_roc\ttest_roc\ttime\n")
 
+    log_file.flush()
     for epoch in range(num_epochs):
         st = time.time()
         print("EPOCH %d:"%epoch)
