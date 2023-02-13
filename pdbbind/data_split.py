@@ -2,6 +2,7 @@ from ic50_statistic import get_kds
 from sklearn.model_selection import train_test_split
 import pickle
 import sys
+import os
 
 keys_file = "keys.pkl"
 #active_keys_file = "active_keys.pkl"
