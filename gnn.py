@@ -61,7 +61,7 @@ class gnn(torch.nn.Module):
             if k<len(self.FC)-1:
                 c_hs = self.FC[k](c_hs)
                 c_hs = F.dropout(c_hs, p=self.dropout_rate, training=self.training)
-                c_hs = F.relu(c_hs)
+                c_hs = F.leaky_relu(c_hs)
             else:
                 c_hs = self.FC[k](c_hs)
 
